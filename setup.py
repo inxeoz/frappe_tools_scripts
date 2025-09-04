@@ -1,8 +1,8 @@
+#!/usr/bin/env python3
 import os
 import subprocess
 import sys
 from getpass import getpass
-
 
 def run_command(command, cwd=None, env=None):
     """Helper to run shell commands and stream output"""
@@ -22,16 +22,13 @@ def run_command(command, cwd=None, env=None):
     if process.returncode != 0:
         sys.exit(process.returncode)
 
-
 def enable_developer_mode(activate_cmd, bench_dir):
     run_command(f"{activate_cmd} && bench set-config developer_mode 1", cwd=bench_dir)
     print("✅ Developer mode enabled")
 
-
 def enable_server_scripts(activate_cmd, bench_dir):
     run_command(f"{activate_cmd} && bench set-config server_script_enabled true", cwd=bench_dir)
     print("✅ Server scripts enabled")
-
 
 def set_admin_api_keys(activate_cmd, bench_dir, site_name, api_key, api_secret):
     api_cmd = f"""{activate_cmd} && bench --site {site_name} execute "exec(\\"import frappe; \
@@ -45,10 +42,8 @@ print('✅ API credentials set for Administrator')\\")"
 """
     run_command(api_cmd, cwd=bench_dir)
 
-
 def update_admin_password(activate_cmd, bench_dir, site_name):
     new_password = os.getenv("ADMIN_PASSWORD") or getpass("Enter new Administrator password: ")
-
     password_cmd = f"""{activate_cmd} && bench --site {site_name} execute "exec(\\"import frappe; \
 frappe.connect(); \
 from frappe.utils import password as _password; \
@@ -57,7 +52,6 @@ frappe.db.commit(); \
 print('✅ Password updated for Administrator')\\")"
 """
     run_command(password_cmd, cwd=bench_dir)
-
 
 def set_cors(activate_cmd, bench_dir):
     print("\nCORS Configuration:")
@@ -79,34 +73,40 @@ def set_cors(activate_cmd, bench_dir):
     else:
         print("⚠️ Invalid choice, skipping CORS configuration")
 
-
 def main():
-    # Ask for paths, with defaults
-    bench_dir = input("Enter bench directory [../../]: ").strip() or "../../"
-    venv_path = input("Enter virtualenv path [~/.venv/cenv/bin/activate]: ").strip() or "~/.venv/cenv/bin/activate"
-    site_name = input("Enter site name [msite.local]: ").strip() or "msite.local"
+    try:
+        # Default bench_dir is where the script is *executed* from
+        default_bench_dir = os.getcwd()
 
-    activate_cmd = f"source {os.path.expanduser(venv_path)}"
+        # Ask for paths, with defaults
+        bench_dir = input(f"Enter bench directory [{default_bench_dir}]: ").strip() or default_bench_dir
+        venv_path = input("Enter virtualenv path [~/.venv/cenv/bin/activate]: ").strip() or "~/.venv/cenv/bin/activate"
+        site_name = input("Enter site name [msite.local]: ").strip() or "msite.local"
 
-    # Ask whether to enable developer mode
-    if input("Enable developer mode? (y/n): ").lower().strip() == "y":
-        enable_developer_mode(activate_cmd, bench_dir)
+        activate_cmd = f"source {os.path.expanduser(venv_path)}"
 
-    # Ask whether to enable server scripts
-    if input("Enable server scripts? (y/n): ").lower().strip() == "y":
-        enable_server_scripts(activate_cmd, bench_dir)
+        # Ask whether to enable developer mode
+        if input("Enable developer mode? (y/n): ").lower().strip() == "y":
+            enable_developer_mode(activate_cmd, bench_dir)
 
-    # Ask for API key/secret
-    api_key = input("Enter Administrator API key: ").strip()
-    api_secret = getpass("Enter Administrator API secret: ")
-    set_admin_api_keys(activate_cmd, bench_dir, site_name, api_key, api_secret)
+        # Ask whether to enable server scripts
+        if input("Enable server scripts? (y/n): ").lower().strip() == "y":
+            enable_server_scripts(activate_cmd, bench_dir)
 
-    # Update admin password
-    update_admin_password(activate_cmd, bench_dir, site_name)
+        # Ask for API key/secret
+        api_key = input("Enter Administrator API key: ").strip()
+        api_secret = getpass("Enter Administrator API secret: ")
+        set_admin_api_keys(activate_cmd, bench_dir, site_name, api_key, api_secret)
 
-    # Ask for CORS config
-    set_cors(activate_cmd, bench_dir)
+        # Update admin password
+        update_admin_password(activate_cmd, bench_dir, site_name)
 
+        # Ask for CORS config
+        set_cors(activate_cmd, bench_dir)
+
+    except KeyboardInterrupt:
+        print("\nAborted by user.")
+        sys.exit(130)
 
 if __name__ == "__main__":
     main()
